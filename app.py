@@ -302,13 +302,13 @@ pdf.cell(200, 10, txt=f"Cliente: {cliente}", ln=True)
 pdf.cell(200, 10, txt=f"Fecha: {fecha}", ln=True)
 pdf.cell(200, 10, txt=f"Proveedor: {proveedor}", ln=True)
 
-        if modo == "Registro de Entrega":
-            pdf.cell(200, 10, txt=f"Artículo: {elementos['Artículo']}, Cantidad: {elementos['Cantidad']}", ln=True)
-        else:
-            for k, v in cantidades.items():
-                if v > 0:
-                    pdf.cell(200, 10, txt=f"{k}: {v}", ln=True)
-            pdf.multi_cell(0, 10, txt=f"Observaciones: {observaciones}")
+if modo == "Registro de Entrega":
+        pdf.cell(200, 10, txt=f"Artículo: {elementos['Artículo']}, Cantidad: {elementos['Cantidad']}", ln=True)
+    else:
+        for k, v in cantidades.items():
+            if v > 0:
+                pdf.cell(200, 10, txt=f"{k}: {v}", ln=True)
+        pdf.multi_cell(0, 10, txt=f"Observaciones: {observaciones}")
 
         pdf.ln(10)
         pdf.cell(200, 10, txt="Autorizado por: Paola Villamarín", ln=True)
