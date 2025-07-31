@@ -247,43 +247,71 @@ import streamlit as st
 import pandas as pd
 import io
 
-# Asegúrate de tener df_entregas y df_activaciones ya cargados desde el archivo Excel antes de este bloque.
+# Configuración
+EXCEL_FILENAME = "LISTADO DE CLIENTES Y COMERCIALES 2025-06-10 (2).xlsx"
+HOJA_ENTREGAS = "ENTREGADO"
+HOJA_ACTIVACIONES = "ACTIVACIONES"
 
-# Etiquetar los tipos
+# Cargar datos
+try:
+    df_entregas = pd.read_excel(EXCEL_FILENAME, sheet_name=HOJA_ENTREGAS)
+except Exception:
+    df_entregas = pd.DataFrame()
+
+try:
+    df_activaciones = pd.read_excel(EXCEL_FILENAME, sheet_name=HOJA_ACTIVACIONES)
+except Exception:
+    df_activaciones = pd.DataFrame()
+
+# Asegurar que las columnas Fecha existen y son tipo datetime
+if "Fecha" in df_entregas.columns:
+    df_entregas["Fecha"] = pd.to_datetime(df_entregas["Fecha"], errors='coerce')
+else:
+    df_entregas["Fecha"] = pd.NaT
+
+if "Fecha" in df_activaciones.columns:
+    df_activaciones["Fecha"] = pd.to_datetime(df_activaciones["Fecha"], errors='coerce')
+else:
+    df_activaciones["Fecha"] = pd.NaT
+
+# Agregar columna Tipo
 df_entregas["Tipo"] = "Registro"
 df_activaciones["Tipo"] = "Activación"
 
-# Combinar ambos
+# Combinar ambos DataFrames
 df_combined = pd.concat([df_entregas, df_activaciones], ignore_index=True)
 
-# Convertir fechas
-df_combined["Fecha"] = pd.to_datetime(df_combined["Fecha"])
+# Limpieza básica: eliminar filas sin cliente o fecha
+df_combined = df_combined.dropna(subset=["Cliente", "Fecha"])
 
-# ====================== Reporte por Cliente y Fecha ======================
-st.subheader("📑 Reporte por Cliente y Fecha")
+st.title("📑 Reporte de Entregas y Activaciones")
 
-clientes_disponibles = ["Todos"] + sorted(df_combined["Cliente"].dropna().unique())
+# Filtros
+clientes_disponibles = ["Todos"] + sorted(df_combined["Cliente"].unique())
 cliente_filtro = st.selectbox("Filtrar por cliente", clientes_disponibles)
-fecha_inicio = st.date_input("Fecha desde", df_combined["Fecha"].min().date())
-fecha_fin = st.date_input("Fecha hasta", df_combined["Fecha"].max().date())
+
+fecha_min = df_combined["Fecha"].min().date()
+fecha_max = df_combined["Fecha"].max().date()
+
+fecha_inicio = st.date_input("Fecha desde", value=fecha_min, min_value=fecha_min, max_value=fecha_max)
+fecha_fin = st.date_input("Fecha hasta", value=fecha_max, min_value=fecha_min, max_value=fecha_max)
+
 tipo_reporte = st.multiselect("Tipos de registro", ["Registro", "Activación"], default=["Registro", "Activación"])
 
-# Filtrar DataFrame
-df_reporte = df_combined.copy()
+# Aplicar filtros
+df_reporte = df_combined[
+    (df_combined["Fecha"].dt.date >= fecha_inicio) &
+    (df_combined["Fecha"].dt.date <= fecha_fin) &
+    (df_combined["Tipo"].isin(tipo_reporte))
+]
+
 if cliente_filtro != "Todos":
     df_reporte = df_reporte[df_reporte["Cliente"] == cliente_filtro]
 
-df_reporte = df_reporte[
-    (df_reporte["Fecha"] >= pd.to_datetime(fecha_inicio)) &
-    (df_reporte["Fecha"] <= pd.to_datetime(fecha_fin)) &
-    (df_reporte["Tipo"].isin(tipo_reporte))
-]
-
-# Mostrar resultados
 st.write(f"Mostrando {len(df_reporte)} registros filtrados:")
 st.dataframe(df_reporte)
 
-# Descargar en Excel
+# Botón para descargar Excel
 buffer = io.BytesIO()
 with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
     df_reporte.to_excel(writer, index=False, sheet_name="Reporte")
@@ -295,15 +323,3 @@ st.download_button(
     file_name="reporte_entregas_activaciones.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
-
-
-
-
-
-
-
-
-
-
-
- 
