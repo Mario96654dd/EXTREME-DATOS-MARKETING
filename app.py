@@ -244,25 +244,29 @@ if enviado:
 
 
 
-
-
-
-
-
-
-
-
-
+import streamlit as st
+import pandas as pd
+import io
 
 st.subheader("📑 Reporte por Cliente y Fecha")
 
+# Asegurarse de que la columna Fecha sea tipo datetime
+df_combined["Fecha"] = pd.to_datetime(df_combined["Fecha"])
+
+# Filtro por cliente
 clientes_disponibles = ["Todos"] + sorted(df_combined["Cliente"].dropna().unique())
 cliente_filtro = st.selectbox("Filtrar por cliente", clientes_disponibles)
+
+# Filtro por rango de fechas
 fecha_inicio = st.date_input("Fecha desde", df_combined["Fecha"].min().date())
 fecha_fin = st.date_input("Fecha hasta", df_combined["Fecha"].max().date())
+
+# Filtro por tipo de registro
 tipo_reporte = st.multiselect("Tipos de registro", ["Registro", "Activación"], default=["Registro", "Activación"])
 
+# Aplicar filtros
 df_reporte = df_combined.copy()
+
 if cliente_filtro != "Todos":
     df_reporte = df_reporte[df_reporte["Cliente"] == cliente_filtro]
 
@@ -272,9 +276,11 @@ df_reporte = df_reporte[
     (df_reporte["Tipo"].isin(tipo_reporte))
 ]
 
+# Mostrar resultados
 st.write(f"Mostrando {len(df_reporte)} registros filtrados:")
 st.dataframe(df_reporte)
 
+# Botón para descargar Excel filtrado
 buffer = io.BytesIO()
 with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
     df_reporte.to_excel(writer, index=False, sheet_name="Reporte")
@@ -285,4 +291,15 @@ st.download_button(
     data=buffer,
     file_name="reporte_entregas_activaciones.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)  
+)
+
+
+
+
+
+
+
+
+
+
+ 
