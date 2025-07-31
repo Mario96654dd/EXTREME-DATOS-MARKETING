@@ -286,29 +286,88 @@ df_entregas["Tipo"] = "Registro"
 df_activaciones["Tipo"] = "Activación"
 df_combined = pd.concat([df_entregas, df_activaciones], ignore_index=True)
 
-# Guardar en Excel
-with pd.ExcelWriter(EXCEL_FILENAME, engine="openpyxl", mode="a", if_sheet_exists="overlay") as writer:
+st.title("📦 Registro de Entregas y Activaciones Publicitarias")
+
+modo = st.radio("¿Qué deseas registrar?", ["Registro de Entrega", "Activación"])
+
+# Cargar clientes desde Excel
+try:
+    df_clientes = pd.read_excel(EXCEL_FILENAME, sheet_name=0)
+    clientes_lista = df_clientes["nombre_fiscal"].dropna().unique().tolist()
+except:
+    clientes_lista = []
+
+st.subheader("📝 Formulario")
+
+with st.form("formulario"):
+    cliente = st.selectbox("Cliente", clientes_lista)
+    fecha = st.date_input("Fecha", value=datetime.today())
+    proveedor = st.text_input("Proveedor (opcional)", "")
+    elementos = []
+
     if modo == "Registro de Entrega":
-        df_entregas.to_excel(writer, index=False, sheet_name=hoja)
+        elementos = {
+            "Cantidad": st.number_input("Cantidad", min_value=1),
+            "Artículo": st.text_input("Artículo"),
+        }
     else:
-        df_activaciones.to_excel(writer, index=False, sheet_name=hoja)
+        tipo_activacion = st.selectbox("Tipo de Activación", ["Extreme", "Pantro"])
+        if tipo_activacion == "Extreme":
+            items = ["Inflable Arco", "Inflable Batería VOLTMAX", "Bandera Extreme", "Mesa y Mantel Extreme",
+                     "Gorra Extreme", "Gorra Voltmax", "Camiseta Extreme", "Camiseta Voltmax", "Hoja QR", "Registro",
+                     "Carpa Extreme", "Vestido Extreme", "Llavero Extreme", "Llavero Pantro", "Parlante", "Micrófono"]
+        else:
+            items = ["Inflable tipo Llanta", "Bandera Pantro", "Mesa y Mantel Pantro", "Vestido Pantro",
+                     "Carpa Pantro", "Camiseta Pantro", "Llavero Pantro"]
 
-# Crear PDF
-pdf = FPDF()
-pdf.add_page()
-pdf.set_font("Arial", size=12)
-pdf.cell(200, 10, txt=f"Formulario de {modo}", ln=True, align='C')
-pdf.cell(200, 10, txt=f"Cliente: {cliente}", ln=True)
-pdf.cell(200, 10, txt=f"Fecha: {fecha}", ln=True)
-pdf.cell(200, 10, txt=f"Proveedor: {proveedor}", ln=True)
+        cantidades = {}
+        for item in items:
+            cantidades[item] = st.number_input(f"{item}", min_value=0, key=item)
 
-if modo == "Registro de Entrega":
-        pdf.cell(200, 10, txt=f"Artículo: {elementos['Artículo']}, Cantidad: {elementos['Cantidad']}", ln=True)
-    else:
-        for k, v in cantidades.items():
-            if v > 0:
-                pdf.cell(200, 10, txt=f"{k}: {v}", ln=True)
-        pdf.multi_cell(0, 10, txt=f"Observaciones: {observaciones}")
+        observaciones = st.text_area("Observaciones")
+
+    submitted = st.form_submit_button("Guardar y generar PDF")
+
+    if submitted:
+        nueva_fila = {
+            "Cliente": cliente,
+            "Fecha": fecha,
+            "Proveedor": proveedor
+        }
+
+        if modo == "Registro de Entrega":
+            nueva_fila.update(elementos)
+            df_entregas = df_entregas._append(nueva_fila, ignore_index=True)
+            hoja = EXCEL_SHEET_REGISTRO
+        else:
+            nueva_fila.update(cantidades)
+            nueva_fila["Observaciones"] = observaciones
+            df_activaciones = df_activaciones._append(nueva_fila, ignore_index=True)
+            hoja = EXCEL_SHEET_ACTIVACION
+
+        # Guardar en Excel
+        with pd.ExcelWriter(EXCEL_FILENAME, engine="openpyxl", mode="a", if_sheet_exists="overlay") as writer:
+            if modo == "Registro de Entrega":
+                df_entregas.to_excel(writer, index=False, sheet_name=hoja)
+            else:
+                df_activaciones.to_excel(writer, index=False, sheet_name=hoja)
+
+        # Crear PDF
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        pdf.cell(200, 10, txt=f"Formulario de {modo}", ln=True, align='C')
+        pdf.cell(200, 10, txt=f"Cliente: {cliente}", ln=True)
+        pdf.cell(200, 10, txt=f"Fecha: {fecha}", ln=True)
+        pdf.cell(200, 10, txt=f"Proveedor: {proveedor}", ln=True)
+
+        if modo == "Registro de Entrega":
+            pdf.cell(200, 10, txt=f"Artículo: {elementos['Artículo']}, Cantidad: {elementos['Cantidad']}", ln=True)
+        else:
+            for k, v in cantidades.items():
+                if v > 0:
+                    pdf.cell(200, 10, txt=f"{k}: {v}", ln=True)
+            pdf.multi_cell(0, 10, txt=f"Observaciones: {observaciones}")
 
         pdf.ln(10)
         pdf.cell(200, 10, txt="Autorizado por: Paola Villamarín", ln=True)
@@ -349,4 +408,4 @@ st.download_button(
     data=buffer,
     file_name="reporte_entregas_activaciones.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+)  
