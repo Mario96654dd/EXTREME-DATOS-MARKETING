@@ -245,73 +245,40 @@ if enviado:
 
 import streamlit as st
 import pandas as pd
+import datetime
 import io
 
-# Configuración
-EXCEL_FILENAME = "LISTADO DE CLIENTES Y COMERCIALES 2025-06-10 (2).xlsx"
-HOJA_ENTREGAS = "ENTREGADO"
-HOJA_ACTIVACIONES = "ACTIVACIONES"
+st.subheader("📑 Reporte por Cliente y Fecha")
 
-# Cargar datos
-try:
-    df_entregas = pd.read_excel(EXCEL_FILENAME, sheet_name=HOJA_ENTREGAS)
-except Exception:
-    df_entregas = pd.DataFrame()
+# Asegúrate que df_combined exista y tenga la columna Fecha como datetime
 
-try:
-    df_activaciones = pd.read_excel(EXCEL_FILENAME, sheet_name=HOJA_ACTIVACIONES)
-except Exception:
-    df_activaciones = pd.DataFrame()
-
-# Asegurar que las columnas Fecha existen y son tipo datetime
-if "Fecha" in df_entregas.columns:
-    df_entregas["Fecha"] = pd.to_datetime(df_entregas["Fecha"], errors='coerce')
+# Validar y preparar fechas para filtros
+if not df_combined["Fecha"].dropna().empty:
+    fecha_min = df_combined["Fecha"].dropna().min().date()
+    fecha_max = df_combined["Fecha"].dropna().max().date()
 else:
-    df_entregas["Fecha"] = pd.NaT
+    fecha_min = fecha_max = datetime.date.today()
 
-if "Fecha" in df_activaciones.columns:
-    df_activaciones["Fecha"] = pd.to_datetime(df_activaciones["Fecha"], errors='coerce')
-else:
-    df_activaciones["Fecha"] = pd.NaT
-
-# Agregar columna Tipo
-df_entregas["Tipo"] = "Registro"
-df_activaciones["Tipo"] = "Activación"
-
-# Combinar ambos DataFrames
-df_combined = pd.concat([df_entregas, df_activaciones], ignore_index=True)
-
-# Limpieza básica: eliminar filas sin cliente o fecha
-df_combined = df_combined.dropna(subset=["Cliente", "Fecha"])
-
-st.title("📑 Reporte de Entregas y Activaciones")
-
-# Filtros
-clientes_disponibles = ["Todos"] + sorted(df_combined["Cliente"].unique())
+clientes_disponibles = ["Todos"] + sorted(df_combined["Cliente"].dropna().unique())
 cliente_filtro = st.selectbox("Filtrar por cliente", clientes_disponibles)
-
-fecha_min = df_combined["Fecha"].min().date()
-fecha_max = df_combined["Fecha"].max().date()
-
 fecha_inicio = st.date_input("Fecha desde", value=fecha_min, min_value=fecha_min, max_value=fecha_max)
 fecha_fin = st.date_input("Fecha hasta", value=fecha_max, min_value=fecha_min, max_value=fecha_max)
-
 tipo_reporte = st.multiselect("Tipos de registro", ["Registro", "Activación"], default=["Registro", "Activación"])
 
-# Aplicar filtros
-df_reporte = df_combined[
-    (df_combined["Fecha"].dt.date >= fecha_inicio) &
-    (df_combined["Fecha"].dt.date <= fecha_fin) &
-    (df_combined["Tipo"].isin(tipo_reporte))
-]
-
+# Filtrado
+df_reporte = df_combined.copy()
 if cliente_filtro != "Todos":
     df_reporte = df_reporte[df_reporte["Cliente"] == cliente_filtro]
+
+df_reporte = df_reporte[
+    (df_reporte["Fecha"] >= pd.to_datetime(fecha_inicio)) &
+    (df_reporte["Fecha"] <= pd.to_datetime(fecha_fin)) &
+    (df_reporte["Tipo"].isin(tipo_reporte))
+]
 
 st.write(f"Mostrando {len(df_reporte)} registros filtrados:")
 st.dataframe(df_reporte)
 
-# Botón para descargar Excel
 buffer = io.BytesIO()
 with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
     df_reporte.to_excel(writer, index=False, sheet_name="Reporte")
