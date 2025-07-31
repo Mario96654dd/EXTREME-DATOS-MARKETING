@@ -286,21 +286,21 @@ df_entregas["Tipo"] = "Registro"
 df_activaciones["Tipo"] = "Activación"
 df_combined = pd.concat([df_entregas, df_activaciones], ignore_index=True)
 
-        # Guardar en Excel
-        with pd.ExcelWriter(EXCEL_FILENAME, engine="openpyxl", mode="a", if_sheet_exists="overlay") as writer:
-            if modo == "Registro de Entrega":
-                df_entregas.to_excel(writer, index=False, sheet_name=hoja)
-            else:
-                df_activaciones.to_excel(writer, index=False, sheet_name=hoja)
+# Guardar en Excel
+with pd.ExcelWriter(EXCEL_FILENAME, engine="openpyxl", mode="a", if_sheet_exists="overlay") as writer:
+    if modo == "Registro de Entrega":
+        df_entregas.to_excel(writer, index=False, sheet_name=hoja)
+    else:
+        df_activaciones.to_excel(writer, index=False, sheet_name=hoja)
 
-        # Crear PDF
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", size=12)
-        pdf.cell(200, 10, txt=f"Formulario de {modo}", ln=True, align='C')
-        pdf.cell(200, 10, txt=f"Cliente: {cliente}", ln=True)
-        pdf.cell(200, 10, txt=f"Fecha: {fecha}", ln=True)
-        pdf.cell(200, 10, txt=f"Proveedor: {proveedor}", ln=True)
+# Crear PDF
+pdf = FPDF()
+pdf.add_page()
+pdf.set_font("Arial", size=12)
+pdf.cell(200, 10, txt=f"Formulario de {modo}", ln=True, align='C')
+pdf.cell(200, 10, txt=f"Cliente: {cliente}", ln=True)
+pdf.cell(200, 10, txt=f"Fecha: {fecha}", ln=True)
+pdf.cell(200, 10, txt=f"Proveedor: {proveedor}", ln=True)
 
         if modo == "Registro de Entrega":
             pdf.cell(200, 10, txt=f"Artículo: {elementos['Artículo']}, Cantidad: {elementos['Cantidad']}", ln=True)
