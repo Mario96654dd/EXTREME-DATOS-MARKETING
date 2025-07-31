@@ -1,4 +1,4 @@
-mport streamlit as st
+import streamlit as st
 import pandas as pd
 import datetime
 
@@ -349,4 +349,4 @@ st.download_button(
     data=buffer,
     file_name="reporte_entregas_activaciones.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)  
+)
