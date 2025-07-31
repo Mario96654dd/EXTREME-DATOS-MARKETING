@@ -245,35 +245,104 @@ if enviado:
 
 import streamlit as st
 import pandas as pd
-import datetime
+from datetime import datetime
+import os
+from fpdf import FPDF
 import io
 
-st.subheader("📑 Reporte por Cliente y Fecha")
+# Configurar nombre de archivo base
+EXCEL_FILENAME = "LISTADO DE CLIENTES Y COMERCIALES 2025-06-10 (2).xlsx"
+EXCEL_SHEET_REGISTRO = "ENTREGADO"
 
-# Asegúrate que df_combined exista y tenga la columna Fecha como datetime
+# Crear archivo si no existe
+if not os.path.exists(EXCEL_FILENAME):
+    with pd.ExcelWriter(EXCEL_FILENAME, engine="openpyxl") as writer:
+        pd.DataFrame().to_excel(writer, index=False, sheet_name=EXCEL_SHEET_REGISTRO)
 
-# Validar y preparar fechas para filtros
-if not df_combined["Fecha"].dropna().empty:
-    fecha_min = df_combined["Fecha"].dropna().min().date()
-    fecha_max = df_combined["Fecha"].dropna().max().date()
+# Cargar hoja de entregas
+df_entregas = pd.read_excel(EXCEL_FILENAME, sheet_name=EXCEL_SHEET_REGISTRO)
+
+# Convertir fecha si existe
+if "Fecha" in df_entregas.columns:
+    df_entregas["Fecha"] = pd.to_datetime(df_entregas["Fecha"])
+
+# Añadir columna Tipo para el reporte (solo "Registro")
+df_entregas["Tipo"] = "Registro"
+
+st.title("📦 Registro de Entregas Publicitarias")
+
+# Cargar clientes desde Excel
+try:
+    df_clientes = pd.read_excel(EXCEL_FILENAME, sheet_name=0)
+    clientes_lista = df_clientes["nombre_fiscal"].dropna().unique().tolist()
+except:
+    clientes_lista = []
+
+st.subheader("📝 Formulario Registro de Entrega")
+
+with st.form("form_entrega"):
+    cliente = st.selectbox("Cliente", clientes_lista)
+    fecha = st.date_input("Fecha", value=datetime.today())
+    proveedor = st.text_input("Proveedor (opcional)", "")
+    cantidad = st.number_input("Cantidad", min_value=1)
+    articulo = st.text_input("Artículo")
+
+    submitted = st.form_submit_button("Guardar y generar PDF")
+
+    if submitted:
+        nueva_fila = {
+            "Cliente": cliente,
+            "Fecha": fecha,
+            "Proveedor": proveedor,
+            "Cantidad": cantidad,
+            "Artículo": articulo,
+            "Tipo": "Registro"
+        }
+
+        df_entregas = df_entregas._append(nueva_fila, ignore_index=True)
+
+        # Guardar en Excel
+        with pd.ExcelWriter(EXCEL_FILENAME, engine="openpyxl", mode="a", if_sheet_exists="overlay") as writer:
+            df_entregas.to_excel(writer, index=False, sheet_name=EXCEL_SHEET_REGISTRO)
+
+        # Crear PDF
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        pdf.cell(200, 10, txt="Formulario de Registro de Entrega", ln=True, align='C')
+        pdf.cell(200, 10, txt=f"Cliente: {cliente}", ln=True)
+        pdf.cell(200, 10, txt=f"Fecha: {fecha}", ln=True)
+        pdf.cell(200, 10, txt=f"Proveedor: {proveedor}", ln=True)
+        pdf.cell(200, 10, txt=f"Artículo: {articulo}, Cantidad: {cantidad}", ln=True)
+        pdf.ln(10)
+        pdf.cell(200, 10, txt="Autorizado por: Paola Villamarín", ln=True)
+        pdf.cell(200, 10, txt="Responsable: Mario Ponce", ln=True)
+
+        pdf_filename = f"Registro_de_Entrega_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        pdf.output(pdf_filename)
+        st.success(f"Guardado exitosamente y generado PDF: {pdf_filename}")
+
+st.subheader("📑 Reporte de Entregas por Cliente y Fecha")
+
+# Validar fechas para filtros
+if not df_entregas["Fecha"].dropna().empty:
+    fecha_min = df_entregas["Fecha"].dropna().min().date()
+    fecha_max = df_entregas["Fecha"].dropna().max().date()
 else:
-    fecha_min = fecha_max = datetime.date.today()
+    fecha_min = fecha_max = datetime.today().date()
 
-clientes_disponibles = ["Todos"] + sorted(df_combined["Cliente"].dropna().unique())
+clientes_disponibles = ["Todos"] + sorted(df_entregas["Cliente"].dropna().unique())
 cliente_filtro = st.selectbox("Filtrar por cliente", clientes_disponibles)
 fecha_inicio = st.date_input("Fecha desde", value=fecha_min, min_value=fecha_min, max_value=fecha_max)
 fecha_fin = st.date_input("Fecha hasta", value=fecha_max, min_value=fecha_min, max_value=fecha_max)
-tipo_reporte = st.multiselect("Tipos de registro", ["Registro", "Activación"], default=["Registro", "Activación"])
 
-# Filtrado
-df_reporte = df_combined.copy()
+df_reporte = df_entregas.copy()
 if cliente_filtro != "Todos":
     df_reporte = df_reporte[df_reporte["Cliente"] == cliente_filtro]
 
 df_reporte = df_reporte[
     (df_reporte["Fecha"] >= pd.to_datetime(fecha_inicio)) &
-    (df_reporte["Fecha"] <= pd.to_datetime(fecha_fin)) &
-    (df_reporte["Tipo"].isin(tipo_reporte))
+    (df_reporte["Fecha"] <= pd.to_datetime(fecha_fin))
 ]
 
 st.write(f"Mostrando {len(df_reporte)} registros filtrados:")
@@ -287,6 +356,6 @@ buffer.seek(0)
 st.download_button(
     label="⬇️ Descargar reporte filtrado",
     data=buffer,
-    file_name="reporte_entregas_activaciones.xlsx",
+    file_name="reporte_entregas.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
