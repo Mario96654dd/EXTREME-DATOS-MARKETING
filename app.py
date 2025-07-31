@@ -243,6 +243,13 @@ if enviado:
 
 
 
+
+
+
+
+
+
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -259,17 +266,12 @@ if not os.path.exists(EXCEL_FILENAME):
     with pd.ExcelWriter(EXCEL_FILENAME, engine="openpyxl") as writer:
         pd.DataFrame().to_excel(writer, index=False, sheet_name=EXCEL_SHEET_REGISTRO)
 
-# Cargar hoja de entregas
+# Cargar hoja entregas
 df_entregas = pd.read_excel(EXCEL_FILENAME, sheet_name=EXCEL_SHEET_REGISTRO)
 
 # Convertir fecha si existe
 if "Fecha" in df_entregas.columns:
     df_entregas["Fecha"] = pd.to_datetime(df_entregas["Fecha"])
-
-# Añadir columna Tipo para el reporte (solo "Registro")
-df_entregas["Tipo"] = "Registro"
-
-st.title("📦 Registro de Entregas Publicitarias")
 
 # Cargar clientes desde Excel
 try:
@@ -278,9 +280,11 @@ try:
 except:
     clientes_lista = []
 
+st.title("📦 Registro de Entregas Publicitarias")
+
 st.subheader("📝 Formulario Registro de Entrega")
 
-with st.form("form_entrega"):
+with st.form("form_entrega_unico"):
     cliente = st.selectbox("Cliente", clientes_lista)
     fecha = st.date_input("Fecha", value=datetime.today())
     proveedor = st.text_input("Proveedor (opcional)", "")
@@ -295,14 +299,12 @@ with st.form("form_entrega"):
             "Fecha": fecha,
             "Proveedor": proveedor,
             "Cantidad": cantidad,
-            "Artículo": articulo,
-            "Tipo": "Registro"
+            "Artículo": articulo
         }
-
         df_entregas = df_entregas._append(nueva_fila, ignore_index=True)
 
         # Guardar en Excel
-        with pd.ExcelWriter(EXCEL_FILENAME, engine="openpyxl", mode="a", if_sheet_exists="overlay") as writer:
+        with pd.ExcelWriter(EXCEL_FILENAME, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
             df_entregas.to_excel(writer, index=False, sheet_name=EXCEL_SHEET_REGISTRO)
 
         # Crear PDF
@@ -314,25 +316,22 @@ with st.form("form_entrega"):
         pdf.cell(200, 10, txt=f"Fecha: {fecha}", ln=True)
         pdf.cell(200, 10, txt=f"Proveedor: {proveedor}", ln=True)
         pdf.cell(200, 10, txt=f"Artículo: {articulo}, Cantidad: {cantidad}", ln=True)
+
         pdf.ln(10)
         pdf.cell(200, 10, txt="Autorizado por: Paola Villamarín", ln=True)
         pdf.cell(200, 10, txt="Responsable: Mario Ponce", ln=True)
 
-        pdf_filename = f"Registro_de_Entrega_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        pdf_filename = f"Registro_Entrega_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         pdf.output(pdf_filename)
-        st.success(f"Guardado exitosamente y generado PDF: {pdf_filename}")
+        st.success(f"Guardado exitosamente en la hoja {EXCEL_SHEET_REGISTRO} y generado PDF: {pdf_filename}")
 
-st.subheader("📑 Reporte de Entregas por Cliente y Fecha")
+st.subheader("📑 Reporte por Cliente y Fecha")
 
-# Validar fechas para filtros
-if not df_entregas["Fecha"].dropna().empty:
-    fecha_min = df_entregas["Fecha"].dropna().min().date()
-    fecha_max = df_entregas["Fecha"].dropna().max().date()
-else:
-    fecha_min = fecha_max = datetime.today().date()
-
+# Para reporte solo de entregas (registro)
 clientes_disponibles = ["Todos"] + sorted(df_entregas["Cliente"].dropna().unique())
 cliente_filtro = st.selectbox("Filtrar por cliente", clientes_disponibles)
+fecha_min = df_entregas["Fecha"].min().date() if not df_entregas.empty else datetime.today().date()
+fecha_max = df_entregas["Fecha"].max().date() if not df_entregas.empty else datetime.today().date()
 fecha_inicio = st.date_input("Fecha desde", value=fecha_min, min_value=fecha_min, max_value=fecha_max)
 fecha_fin = st.date_input("Fecha hasta", value=fecha_max, min_value=fecha_min, max_value=fecha_max)
 
